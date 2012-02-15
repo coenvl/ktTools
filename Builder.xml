@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="KtTools" default="jar" basedir=".">
+	<description>
+		This script will build the plugin.
+	</description>
+
+	<property name="src" location="src" />
+	<property name="build" location="build" />
+	<property name="build.classes" location="${build}/classes" />
+
+	<path id="classpath">
+		<fileset dir="libs">
+			<include name="craftbukkit.jar" />
+			<include name="EasyBind.jar" />
+		</fileset>
+	</path>
+	
+	<target name="verifyRequirements" description="Checks if the necessary requirements for building Handler are fulfilled">
+		<available classname="javax.script.ScriptContext" property="JDK6.present" />
+		<fail unless="JDK6.present" message="JDK 6 or greater is required." />
+	</target>
+
+	<target name="init" depends="clean, verifyRequirements" description="Create the output directories.">
+		<mkdir dir="${build}" />
+		<mkdir dir="${build.classes}" />
+	</target>
+
+	<target name="compile" depends="init" description="Compile the source.">
+		<javac destdir="${build.classes}" debug="on" nowarn="off" deprecation="on" >
+			<compilerarg value="-Xlint" />
+			<src path="${src}" />
+			<classpath refid="classpath" />
+		</javac>
+	</target>
+
+	<target name="jar" depends="compile" description="Create the jar file">
+		<jar destfile="../KtTools.jar">
+			<fileset dir="${build.classes}" />
+			<zipfileset dir="" prefix="" >
+				<include name="plugin.yml" />
+			</zipfileset >
+			<zipfileset dir="${src}" prefix="src" >
+				<include name="**" />
+			</zipfileset>
+		</jar>
+	</target>
+	
+	<target name="clean" description="Remove the output directories">
+		<delete dir="${build}" />
+	</target>
+</project>

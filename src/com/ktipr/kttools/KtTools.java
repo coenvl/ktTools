@@ -1,69 +1,144 @@
 package com.ktipr.kttools;
 
-//import java.util.HashMap;
-import gnu.trove.THashMap;
-
+import java.util.HashMap;
 import java.util.logging.Logger;
 
+import org.bukkit.ChatColor;
+import org.bukkit.Material;
+import org.bukkit.block.Block;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandExecutor;
+import org.bukkit.command.CommandSender;
+import org.bukkit.craftbukkit.block.CraftNoteBlock;
 import org.bukkit.entity.Player;
-import org.bukkit.event.Event;
-import org.bukkit.plugin.PluginManager;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.block.Action;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import com.easybind.listeners.EasyBindEvent;
 import com.easybind.permissions.Permissions;
 import com.easybind.permissions.PermissionsResolver;
 
-//import com.ktipr.kttools.fluidpush.FluidPusherListener;
-import com.ktipr.kttools.blockrotate.*;
-import com.ktipr.kttools.perfecttune.*;
-
-public class KtTools extends JavaPlugin {
+public class KtTools extends JavaPlugin implements Listener, CommandExecutor {
 
 	Logger log = Logger.getLogger("Minecraft");
-	
-	//Using hardcoded bind:
-	//private final RailRotatePlayerListener railRotationListener = new RailRotatePlayerListener();
-	//private final PerfectTunePlayerListener perfectTuneListener = new PerfectTunePlayerListener(this);
-	
-	//Using EasyBind:
-	private final BlockRotateCustomListener blockRotationListener = new BlockRotateCustomListener(this);
-	private final PerfectTuneCustomListener perfectTuneListener = new PerfectTuneCustomListener(this);
-	//private final FluidPusherListener fluidPusherListener = new FluidPusherListener();
-	
 	private static final String prefix = "kttools.";
 	
-	private THashMap<Player, KtNote> tuneMap = new THashMap<Player, KtNote>();
+	private HashMap<Player, KtNote> tuneMap = new HashMap<Player, KtNote>();
 	private Permissions permissions;
 	
 	public void onEnable() { 
 		log.info("Ktipr's tools have been enabled! Rock on Mister!");
-		
 		permissions = PermissionsResolver.resolve(this);
-		
-		// Plugin
-	    PluginManager pm = this.getServer().getPluginManager();
-	    
-	    //Using hardcoded bind:
-	    //pm.registerEvent(Event.Type.PLAYER_INTERACT, perfectTuneListener, Event.Priority.Normal, this);
-	    //pm.registerEvent(Event.Type.PLAYER_INTERACT, railRotationListener, Event.Priority.Normal, this);
-	    
-	    //Using EasyBind:
-	    pm.registerEvent(Event.Type.CUSTOM_EVENT, blockRotationListener, Event.Priority.Normal, this);
-	    pm.registerEvent(Event.Type.CUSTOM_EVENT, perfectTuneListener, Event.Priority.Normal, this);
-	    //pm.registerEvent(Event.Type.BLOCK_PISTON_EXTEND, fluidPusherListener, Event.Priority.Normal, this);
-	    //pm.registerEvent(Event.Type.BLOCK_PISTON_RETRACT, fluidPusherListener, Event.Priority.Normal, this);
-	    
-	    PerfectTuneCommandExecutor myExecutor = new PerfectTuneCommandExecutor(this);
-		getCommand("tune").setExecutor(myExecutor);
+	    getServer().getPluginManager().registerEvents(this, this);
 	}
 	 
 	public void onDisable(){ 
 		log.info("Ktipr's tools have been disabled! :( Sad ktipr");
 	}
 
+	@EventHandler
+	public void blockRotate(EasyBindEvent event) {
+        if(event.isCancelled()) return;
+        if(event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
+        
+        if(event.getName().equals("blockrotate")) {
+            if(!canUse(event.getPlayer(), "rotate")) return;
+            
+            Block target = event.getTriggerEvent().getClickedBlock();
+            
+            if (target.getType() == Material.RAILS) {
+                byte data = target.getData();
+                target.setData((byte) (data == 9 ? 0 : data + 1));
+                event.setCancelled(true);
+                return;
+            }
+            
+            if (target.getType() == Material.POWERED_RAIL ||
+                target.getType() == Material.DETECTOR_RAIL) {
+                byte data = target.getData();
+                byte flag = (byte) (0x8 & data);
+                byte rest = (byte) (0x7 & data);
+                target.setData((byte) ((byte) (rest == 5 ? 0 : rest + 1) | flag));
+                event.setCancelled(true);
+                return;
+            }
+            
+            if (target.getType() == Material.WOOD_STAIRS ||
+                    target.getType() == Material.SMOOTH_STAIRS ||
+                    target.getType() == Material.BRICK_STAIRS ||
+                    target.getType() == Material.COBBLESTONE_STAIRS ||
+                    target.getType() == Material.NETHER_BRICK_STAIRS) {
+                byte data = target.getData();
+                target.setData((byte) (data == 3 ? 0 : data + 1));
+                event.setCancelled(true);
+                return;
+            }
+        }
+    }
+	
+	@EventHandler
+	public void tune(EasyBindEvent event) {
+        if(event.isCancelled()) return;
+        if(event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
+        
+        Player player = event.getPlayer();
+        
+        if(event.getName().equals("tune")) {
+            if(!canUse(player, "tune")) return;
+            
+            Block target = event.getTriggerEvent().getClickedBlock();
+            if (target.getType() != Material.NOTE_BLOCK) return;
+            
+            if (hasNote(player)) {
+                KtNote note = getNote(player);
+                ((CraftNoteBlock) target.getState()).setNote(note);
+                player.sendMessage("Set note to " + note);
+                event.setCancelled(true);
+            } else {
+                player.sendMessage("Please configure you're note first with /note");
+            }
+        }
+    }
+	
+	@Override
+    public boolean onCommand(CommandSender sender, Command cmd, String commandLabel, String[] args){
+        if(!cmd.getName().equalsIgnoreCase("tune")) {
+            return false;
+        }
+        if (!(sender instanceof Player)) {
+            sender.sendMessage(ChatColor.RED + "This command should be used as a player");
+            return true;
+        }
+        Player player = (Player) sender;
+        
+        if (!canUse(player, "tune")) return false;
+        if (args.length != 1) {
+            player.sendMessage(ChatColor.RED + "Usage: /tune [pitch]");
+            return true;
+        }
+        
+        byte pitch;
+        try {
+            pitch = Byte.parseByte(args[0]);
+        } catch (NumberFormatException err) {
+            player.sendMessage(ChatColor.RED + "Invalid argument, pitch must be a number.");
+            return true;
+        }
+        
+        if (pitch < 0 || pitch > 24) {
+            player.sendMessage(ChatColor.RED + "Invalid pitch, must be in interval [0;24]");
+        } else {
+            KtNote note = new KtNote(pitch);
+            setNote(player, note);
+            player.sendMessage("Tunefork set at " + note);
+        }
+        return true;
+    }
+	
 	public boolean canUse(Player player, String node) {
 	    return permissions.canUse(player, prefix + node);
-		//return true;
 	}
 	
 	public KtNote getNote(Player player) {

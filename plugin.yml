@@ -2,8 +2,8 @@ name: KtTools
 main: com.ktipr.kttools.KtTools
 version: 0.3
 author: Coen van Leeuwen
-
+softdepend: [ 'EasyBind', 'Zones' ]
 commands:
-   tune:
-      description: Set the pitch for the pitch fork.
-      usage: /<command> pitch
+    tune:
+        description: Set the pitch for the pitch fork.
+        usage: /<command> pitch
