@@ -188,6 +188,10 @@ public class KtTools extends JavaPlugin implements Listener, CommandExecutor {
 	public ZoneBase getZoneBaseByPlayer(Player player) {
 		return zones.getZoneManager().getSelectedZone(player.getEntityId());
 	}
+	
+	public Zones getZonesPlugin() {
+		return zones;
+	}
 }
 
 
