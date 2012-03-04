@@ -14,24 +14,40 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
+import org.bukkit.plugin.Plugin;
+import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import com.easybind.listeners.EasyBindEvent;
 import com.easybind.permissions.Permissions;
 import com.easybind.permissions.PermissionsResolver;
+import com.zones.Zones;
+import com.zones.model.ZoneBase;
 
 public class KtTools extends JavaPlugin implements Listener, CommandExecutor {
 
-	Logger log = Logger.getLogger("Minecraft");
+	private final Logger log = Logger.getLogger("Minecraft");
 	private static final String prefix = "kttools.";
+    
+    private KtChestCount chestCounter;
 	
 	private HashMap<Player, KtNote> tuneMap = new HashMap<Player, KtNote>();
 	private Permissions permissions;
+	private Zones zones;
 	
 	public void onEnable() { 
-		log.info("Ktipr's tools have been enabled! Rock on Mister!");
+		chestCounter = new KtChestCount(this);
+		
 		permissions = PermissionsResolver.resolve(this);
-	    getServer().getPluginManager().registerEvents(this, this);
+	    	    
+	    PluginManager pm = getServer().getPluginManager();
+	    
+	    pm.registerEvents(this, this);
+	    
+		Plugin plugin = pm.getPlugin("Zones");
+		zones = (Zones) plugin;
+		
+		log.info("Ktipr's tools have been enabled! Rock on Mister!");
 	}
 	 
 	public void onDisable(){ 
@@ -71,7 +87,14 @@ public class KtTools extends JavaPlugin implements Listener, CommandExecutor {
                     target.getType() == Material.COBBLESTONE_STAIRS ||
                     target.getType() == Material.NETHER_BRICK_STAIRS) {
                 byte data = target.getData();
-                target.setData((byte) (data == 3 ? 0 : data + 1));
+                target.setData((byte) (data == 7 ? 0 : data + 1));
+                event.setCancelled(true);
+                return;
+            }
+            
+            if (target.getType() == Material.STEP) {
+                byte data = target.getData();
+                target.setData((byte) (data > 7 ? data - 8 : data + 8));
                 event.setCancelled(true);
                 return;
             }
@@ -104,15 +127,21 @@ public class KtTools extends JavaPlugin implements Listener, CommandExecutor {
 	
 	@Override
     public boolean onCommand(CommandSender sender, Command cmd, String commandLabel, String[] args){
-        if(!cmd.getName().equalsIgnoreCase("tune")) {
-            return false;
+        if(cmd.getName().equalsIgnoreCase("tune")) {
+            return tuneCommand(sender, cmd, commandLabel, args);
         }
-        if (!(sender instanceof Player)) {
+        if(cmd.getName().equalsIgnoreCase("chestcount")) {
+            return chestCounter.chestcountCommand(sender, args);
+        }
+        return true;
+    }
+	
+	public boolean tuneCommand(CommandSender sender, Command cmd, String commandLabel, String[] args) {
+		if (!(sender instanceof Player)) {
             sender.sendMessage(ChatColor.RED + "This command should be used as a player");
             return true;
         }
         Player player = (Player) sender;
-        
         if (!canUse(player, "tune")) return false;
         if (args.length != 1) {
             player.sendMessage(ChatColor.RED + "Usage: /tune [pitch]");
@@ -135,8 +164,8 @@ public class KtTools extends JavaPlugin implements Listener, CommandExecutor {
             player.sendMessage("Tunefork set at " + note);
         }
         return true;
-    }
-	
+	}
+
 	public boolean canUse(Player player, String node) {
 	    return permissions.canUse(player, prefix + node);
 	}
@@ -156,4 +185,9 @@ public class KtTools extends JavaPlugin implements Listener, CommandExecutor {
 		return tuneMap.containsKey(player);
 	}
 	
+	public ZoneBase getZoneBaseByPlayer(Player player) {
+		return zones.getZoneManager().getSelectedZone(player.getEntityId());
+	}
 }
+
+
