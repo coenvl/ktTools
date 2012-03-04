@@ -1,9 +1,13 @@
 name: KtTools
 main: com.ktipr.kttools.KtTools
-version: 0.3
+version: 0.4
 author: Coen van Leeuwen
 softdepend: [ 'EasyBind', 'Zones' ]
 commands:
     tune:
         description: Set the pitch for the pitch fork.
         usage: /<command> pitch
+
+    chestcount:
+        description: Count the amount of items in a zone.
+        usage: /<command> chestcount [id]
