@@ -31,36 +31,63 @@ public class KtChestCount {
 		loadItemDb();
 	}
 
+	//This is actually the wrapper
 	public boolean chestcountCommand(CommandSender sender, String[] args) {
+		//Who runs the command
 		if (!(sender instanceof Player)) {
 			sender.sendMessage(ChatColor.RED + "This command should be used as a player");
-			return true;
+			return false;
 		}
+		
 		Player player = (Player) sender;
+		
+		//Can the player run the chestcount command
 		if (!ktTools.canUse(player, "chestcount")) return false;
 
 		if (args.length != 1) {
 			player.sendMessage(ChatColor.RED + "Usage: /chestcount [blockid]");
-			return true;
+			return false;
 		}
 
-		ItemStack searchBlock = getBlockType(args[0]);
-		if (searchBlock == null) {
-			player.sendMessage(ChatColor.RED + "Unable to search for item " + args[0]);
-			return true;
-		}
-
+		//Get the selected zone, if necessary select one now
 		ZoneBase b = ktTools.getZoneBaseByPlayer(player);
 		if (b == null) {
 			GeneralCommands zonecommands = new GeneralCommands(ktTools.getZonesPlugin());
 			zonecommands.select(player, new String[0]);
 			b = ktTools.getZoneBaseByPlayer(player);
 			if (b == null)
-				return true; //Error message is already shown by zones
+				return false; //Error message is already shown by zones
+		}
+		
+		//See if the player has chest access
+		if (!b.getAccess(player).canModify())
+		{
+			player.sendMessage(ChatColor.RED + "You can not look in chests in zone " + b.getName());
+			return false;
 		}
 
-		ZoneForm f = b.getForm();
+		//Get requested block type
+		ItemStack searchBlock = getBlockType(args[0]);
+		if (searchBlock == null) {
+			player.sendMessage(ChatColor.RED + "Unable to search for item " + args[0]);
+			return false;
+		}
+		
+		//Count
+		int [] chestCount = countItemsInZone(searchBlock, b);
+				
+		//Report
+		player.sendMessage(ChatColor.GREEN + "Found a total of " + chestCount[0] + " " + 
+					searchBlock.getType().name().toLowerCase() + " stored in " +
+					chestCount[1] + (chestCount[1] == 1 ? " chest " : " chests ") + 
+					"in zone '" + b.getName() + "'");
 
+		return true;        
+	}
+
+	public int [] countItemsInZone(ItemStack searchBlock, ZoneBase b)
+	{	
+		ZoneForm f = b.getForm();
 		int count = 0;
 		int chestCount = 0;
 		boolean chestContainsItem;
@@ -68,7 +95,8 @@ public class KtChestCount {
 		for (int x = f.getLowX(); x < f.getHighX(); x++) {
 			for (int y = f.getLowY(); y < f.getHighY(); y++) {
 				for (int z = f.getLowZ(); z < f.getHighZ(); z++) {
-
+					
+					//If the block is a chest in the zone, check it's content
 					if (b.isInsideZone(x, y, z) && b.getWorld().getBlockTypeIdAt(x, z, y) == 54) {
         				Block current = b.getWorld().getBlockAt(x, z, y);
 
@@ -86,15 +114,13 @@ public class KtChestCount {
 				} //z
 			} //y
 		} //x
-
-		player.sendMessage(ChatColor.GREEN + "Found a total of " + count + " " + 
-					searchBlock.getType().name().toLowerCase() + " stored in " +
-					chestCount + (chestCount == 1 ? " chest " : " chests ") + 
-					"in zone '" + b.getName() + "'");
-
-		return true;        
+		
+		int [] ret = {count, chestCount};
+		
+		return ret;
 	}
-
+	
+	//Get the contents of a single chest block
 	private Inventory getSingleBlockInventory(Block block) {
 		if (block.getTypeId() != 54)
 			return null;
@@ -112,6 +138,7 @@ public class KtChestCount {
 		return inventory;
 	}
 
+	//Get the block type of a search string (function from Meaglin's CraftTrade)
 	public ItemStack getBlockType(String type) {        
 		type = type.replace("_", "");
 		type = type.replace(";", ":");
@@ -163,6 +190,7 @@ public class KtChestCount {
 		return new ItemStack(itemId, 0 , data);
 	}
 
+	//Load a database of item names (function from Meaglin's CraftTrade)
 	public void loadItemDb() {
 		itemDb.clear();
 
@@ -194,6 +222,7 @@ public class KtChestCount {
 		}
 	}
 
+	//Check if an itemstack is of same type
 	private boolean isEqualItem(ItemStack item1, ItemStack item2) {
 		if (item1 == null || item2 == null)
 			return false;

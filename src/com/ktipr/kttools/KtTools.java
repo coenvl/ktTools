@@ -10,10 +10,14 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.craftbukkit.block.CraftNoteBlock;
+import org.bukkit.craftbukkit.block.CraftSign;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
+import org.bukkit.event.block.BlockRedstoneEvent;
+import org.bukkit.event.block.SignChangeEvent;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -30,7 +34,7 @@ public class KtTools extends JavaPlugin implements Listener, CommandExecutor {
 	private static final String prefix = "kttools.";
     
     private KtChestCount chestCounter;
-	
+    
 	private HashMap<Player, KtNote> tuneMap = new HashMap<Player, KtNote>();
 	private Permissions permissions;
 	private Zones zones;
@@ -91,10 +95,12 @@ public class KtTools extends JavaPlugin implements Listener, CommandExecutor {
                 event.setCancelled(true);
                 return;
             }
-            
+
             if (target.getType() == Material.STEP) {
                 byte data = target.getData();
-                target.setData((byte) (data > 7 ? data - 8 : data + 8));
+                int val = target.getType().getId();
+                data = (byte) (data > 7 ? data - 8 : data + 8);
+                target.setTypeIdAndData(val, data, true);
                 event.setCancelled(true);
                 return;
             }
@@ -135,6 +141,53 @@ public class KtTools extends JavaPlugin implements Listener, CommandExecutor {
         }
         return true;
     }
+	
+	@EventHandler
+	public void onSignChangeEvent(SignChangeEvent event) {
+		String firstLine = event.getLine(0);
+		
+		if (firstLine == null) return;
+		
+		if (firstLine.equalsIgnoreCase("[chestcount]")) {
+			ItemStack searchBlock = chestCounter.getBlockType(event.getLine(1));
+			if (searchBlock == null) {
+				event.getPlayer().sendMessage(ChatColor.DARK_RED + "Chestcount: This is an invalid item");
+				event.getBlock().breakNaturally();
+			} else {
+				event.getPlayer().sendMessage(ChatColor.GREEN + "Chestcount: You created a chest count sign!");
+			}
+		}
+		
+	}
+	
+	@EventHandler
+	public void onBlockRedstoneChange(BlockRedstoneEvent event) {
+		Block b = event.getBlock();
+		if (event.getNewCurrent() == 0)	return;
+		
+		if (b.getTypeId() == 63 || b.getTypeId() == 68) {
+			CraftSign sign = (CraftSign) b.getState();
+			String firstLine = sign.getLine(0);
+			
+			if (firstLine == null) return;
+			
+			if (firstLine.equalsIgnoreCase("[chestcount]")) {
+				ItemStack searchBlock = chestCounter.getBlockType(sign.getLine(1));
+				ZoneBase zone = zones.getUtils().getActiveZone(b.getLocation());
+				
+				if (searchBlock == null) {
+					sign.setLine(3, ChatColor.DARK_RED + "UNKNOWN ITEM!");
+				} else if (zone == null) {
+					sign.setLine(3, ChatColor.DARK_RED + "NO ZONE FOUND!");
+				} else {
+					int [] results = chestCounter.countItemsInZone(searchBlock, zone);
+					sign.setLine(3, "" + results[0]);
+				}
+			}
+			
+			sign.update();
+		}
+	}
 	
 	public boolean tuneCommand(CommandSender sender, Command cmd, String commandLabel, String[] args) {
 		if (!(sender instanceof Player)) {
