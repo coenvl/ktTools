@@ -10,4 +10,4 @@ commands:
 
     chestcount:
         description: Count the amount of items in a zone.
-        usage: /<command> chestcount [id]
+        usage: /<command> id

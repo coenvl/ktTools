@@ -10,17 +10,26 @@ import org.bukkit.ChatColor;
 import org.bukkit.block.Block;
 import org.bukkit.block.Chest;
 import org.bukkit.command.CommandSender;
+import org.bukkit.craftbukkit.block.CraftSign;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.DoubleChestInventory;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 
+import com.zones.Zones;
 import com.zones.command.GeneralCommands;
 import com.zones.model.ZoneBase;
 import com.zones.model.ZoneForm;
 import com.zones.util.FileUtil;
 
 public class KtChestCount {
+	static final int NO_SIGN = -1;
+	static final int NO_CHESTCOUNT_SIGN = -2;
+	static final int ERROR_INVALID_SEARCH_ITEM = -3;
+	static final int ERROR_NO_ZONES_PLUGIN = -4;
+	static final int ERROR_NO_ZONE = -5;
+	static final int ERROR_NO_RIGHTS_IN_ZONE = -6;
+	
 	private final Logger log = Logger.getLogger("Minecraft");
 
 	private HashMap<String, Integer> itemDb = new HashMap<String, Integer>();
@@ -42,11 +51,15 @@ public class KtChestCount {
 		Player player = (Player) sender;
 		
 		//Can the player run the chestcount command
-		if (!ktTools.canUse(player, "chestcount")) return false;
+		if (!ktTools.canUse(player, "chestcount"))
+		{
+			player.sendMessage(ChatColor.RED + "You do not have the permissions to use this command");
+			return true;
+		}
 
 		if (args.length != 1) {
-			player.sendMessage(ChatColor.RED + "Usage: /chestcount [blockid]");
-			return false;
+			player.sendMessage(ChatColor.RED + "Usage: /chestcount blockid");
+			return true;
 		}
 
 		//Get the selected zone, if necessary select one now
@@ -56,21 +69,14 @@ public class KtChestCount {
 			zonecommands.select(player, new String[0]);
 			b = ktTools.getZoneBaseByPlayer(player);
 			if (b == null)
-				return false; //Error message is already shown by zones
-		}
-		
-		//See if the player has chest access
-		if (!b.getAccess(player).canModify())
-		{
-			player.sendMessage(ChatColor.RED + "You can not look in chests in zone " + b.getName());
-			return false;
+				return true; //Error message is already shown by zones
 		}
 
 		//Get requested block type
 		ItemStack searchBlock = getBlockType(args[0]);
 		if (searchBlock == null) {
 			player.sendMessage(ChatColor.RED + "Unable to search for item " + args[0]);
-			return false;
+			return true;
 		}
 		
 		//Count
@@ -228,5 +234,53 @@ public class KtChestCount {
 			return false;
 
 		return item1.getTypeId() == item2.getTypeId() && item1.getDurability() == item2.getDurability();
+	}
+
+	public int updateSign(Block b, Player player, String[] lines) {
+		//Only update a real sign
+		if (b.getTypeId() != 63 && b.getTypeId() != 68) return NO_SIGN;
+		
+		CraftSign sign = (CraftSign) b.getState();
+		
+		if (lines == null)
+			lines = sign.getLines();		
+		
+		//Only check chestcount signs
+		if (lines[0] == null || !lines[0].equalsIgnoreCase("[chestcount]")) return NO_CHESTCOUNT_SIGN;
+		
+		//Check if search block is valid
+		ItemStack searchBlock = getBlockType(lines[1]);
+		if (searchBlock == null) {
+			sign.setLine(3, ChatColor.DARK_RED + "UNKNOWN ITEM!");
+			return ERROR_INVALID_SEARCH_ITEM;
+		}
+		
+		//Check if valid zone
+		Zones zoneplugin = ktTools.getZonesPlugin();
+		if (zoneplugin == null)
+		{
+			sign.setLine(3, ChatColor.DARK_RED + "NO ZONE PLUGIN!");
+			return ERROR_NO_ZONES_PLUGIN;
+		}
+		
+		//Check if valid zone
+		ZoneBase zone = zoneplugin.getUtils().getActiveZone(b.getLocation());
+		if (zone == null) {
+			sign.setLine(3, ChatColor.DARK_RED + "NO ZONE FOUND!");
+			return ERROR_NO_ZONE;
+		}
+		
+		if (player != null && !zone.getAccess(player).canModify())
+		{
+			return ERROR_NO_RIGHTS_IN_ZONE;
+		}
+		
+		//And finally do the real thing
+		int [] results = countItemsInZone(searchBlock, zone);
+		sign.setLine(3, "" + results[0]);		
+		sign.update();
+		
+		return results[0];
+		
 	}
 }

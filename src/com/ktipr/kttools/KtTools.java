@@ -10,14 +10,13 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.craftbukkit.block.CraftNoteBlock;
-import org.bukkit.craftbukkit.block.CraftSign;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockRedstoneEvent;
 import org.bukkit.event.block.SignChangeEvent;
-import org.bukkit.inventory.ItemStack;
+import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -60,13 +59,20 @@ public class KtTools extends JavaPlugin implements Listener, CommandExecutor {
 
 	@EventHandler
 	public void blockRotate(EasyBindEvent event) {
-        if(event.isCancelled()) return;
         if(event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
         
         if(event.getName().equals("blockrotate")) {
-            if(!canUse(event.getPlayer(), "rotate")) return;
+        	Player player = event.getPlayer();
+            if(!canUse(event.getPlayer(), "blockrotate")) {
+            	player.sendMessage(ChatColor.RED + "You do not have permissions to rotate blocks");
+            	return;
+            }
             
-            Block target = event.getTriggerEvent().getClickedBlock();
+            Block target = event.getTriggerEvent().getClickedBlock();            
+            if (zones != null && !zones.getUtils().canBuild(player, target)) {
+            	player.sendMessage(ChatColor.RED + "You do not have permissions to rotate this block");
+            	return;
+            }
             
             if (target.getType() == Material.RAILS) {
                 byte data = target.getData();
@@ -109,24 +115,28 @@ public class KtTools extends JavaPlugin implements Listener, CommandExecutor {
 	
 	@EventHandler
 	public void tune(EasyBindEvent event) {
-        if(event.isCancelled()) return;
-        if(event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
+        if (event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
         
         Player player = event.getPlayer();
-        
+                
         if(event.getName().equals("tune")) {
             if(!canUse(player, "tune")) return;
             
             Block target = event.getTriggerEvent().getClickedBlock();
             if (target.getType() != Material.NOTE_BLOCK) return;
             
+            if (zones != null && !zones.getUtils().canModify(player, target)) {
+            	player.sendMessage(ChatColor.RED + "You do not have permissions to tune this noteblock");
+            	event.setCancelled(true);
+            	return;
+            }
+            
             if (hasNote(player)) {
                 KtNote note = getNote(player);
                 ((CraftNoteBlock) target.getState()).setNote(note);
                 player.sendMessage("Set note to " + note);
-                event.setCancelled(true);
             } else {
-                player.sendMessage("Please configure you're note first with /note");
+                player.sendMessage("Please choose a note first with /tune");
             }
         }
     }
@@ -143,21 +153,16 @@ public class KtTools extends JavaPlugin implements Listener, CommandExecutor {
     }
 	
 	@EventHandler
-	public void onSignChangeEvent(SignChangeEvent event) {
-		String firstLine = event.getLine(0);
-		
-		if (firstLine == null) return;
-		
-		if (firstLine.equalsIgnoreCase("[chestcount]")) {
-			ItemStack searchBlock = chestCounter.getBlockType(event.getLine(1));
-			if (searchBlock == null) {
-				event.getPlayer().sendMessage(ChatColor.DARK_RED + "Chestcount: This is an invalid item");
-				event.getBlock().breakNaturally();
-			} else {
-				event.getPlayer().sendMessage(ChatColor.GREEN + "Chestcount: You created a chest count sign!");
-			}
+	public void onSignChangeEvent(SignChangeEvent event) {	
+		int result = chestCounter.updateSign(event.getBlock(), event.getPlayer(), event.getLines());
+		if (result > 0) {
+			event.getPlayer().sendMessage(ChatColor.GREEN + "You created a chest count sign!");
+			event.setLine(3, "" + result);
+		} else if (result < KtChestCount.NO_CHESTCOUNT_SIGN ) {
+			sendChestCountErrorMessage(result, event.getPlayer());
+			event.setCancelled(true);
+			event.getBlock().breakNaturally();
 		}
-		
 	}
 	
 	@EventHandler
@@ -165,30 +170,44 @@ public class KtTools extends JavaPlugin implements Listener, CommandExecutor {
 		Block b = event.getBlock();
 		if (event.getNewCurrent() == 0)	return;
 		
-		if (b.getTypeId() == 63 || b.getTypeId() == 68) {
-			CraftSign sign = (CraftSign) b.getState();
-			String firstLine = sign.getLine(0);
-			
-			if (firstLine == null) return;
-			
-			if (firstLine.equalsIgnoreCase("[chestcount]")) {
-				ItemStack searchBlock = chestCounter.getBlockType(sign.getLine(1));
-				ZoneBase zone = zones.getUtils().getActiveZone(b.getLocation());
-				
-				if (searchBlock == null) {
-					sign.setLine(3, ChatColor.DARK_RED + "UNKNOWN ITEM!");
-				} else if (zone == null) {
-					sign.setLine(3, ChatColor.DARK_RED + "NO ZONE FOUND!");
-				} else {
-					int [] results = chestCounter.countItemsInZone(searchBlock, zone);
-					sign.setLine(3, "" + results[0]);
-				}
-			}
-			
-			sign.update();
-		}
+		chestCounter.updateSign(b, null, null);
 	}
 	
+	@EventHandler
+	public void onPlayerInteractEvent(PlayerInteractEvent event) {
+		if (event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
+		
+		Block b = event.getClickedBlock();
+		if (b.getTypeId() != 63 && b.getTypeId() != 68) return;
+		event.setCancelled(true);
+		
+		int result = chestCounter.updateSign(b, event.getPlayer(), null);
+		
+		if (result < 0) sendChestCountErrorMessage(result, event.getPlayer());
+	}
+	
+	private void sendChestCountErrorMessage(int result, Player player) {
+		String msg = ChatColor.RED + "Error updating chest count sign: ";
+		switch (result) {
+			case KtChestCount.NO_SIGN:
+			case KtChestCount.NO_CHESTCOUNT_SIGN:
+				return;
+			case KtChestCount.ERROR_INVALID_SEARCH_ITEM:
+				msg += "Invalid search item";
+				break;
+			case KtChestCount.ERROR_NO_ZONES_PLUGIN:
+				msg += "No zones plugin found";
+				break;
+			case KtChestCount.ERROR_NO_ZONE:
+				msg += "Sign must be placed in a zone";
+				break;
+			case KtChestCount.ERROR_NO_RIGHTS_IN_ZONE:
+				msg += "You do not have access to chests in this zone";
+				break;
+		}
+		player.sendMessage(msg);
+	}
+
 	public boolean tuneCommand(CommandSender sender, Command cmd, String commandLabel, String[] args) {
 		if (!(sender instanceof Player)) {
             sender.sendMessage(ChatColor.RED + "This command should be used as a player");
