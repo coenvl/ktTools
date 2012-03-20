@@ -1,6 +1,7 @@
 package com.ktipr.kttools;
 
 import java.io.File;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map.Entry;
 import java.util.logging.Logger;
@@ -10,6 +11,7 @@ import org.bukkit.ChatColor;
 import org.bukkit.block.Block;
 import org.bukkit.block.Chest;
 import org.bukkit.command.CommandSender;
+import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.craftbukkit.block.CraftSign;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.DoubleChestInventory;
@@ -29,15 +31,21 @@ public class KtChestCount {
 	static final int ERROR_NO_ZONES_PLUGIN = -4;
 	static final int ERROR_NO_ZONE = -5;
 	static final int ERROR_NO_RIGHTS_IN_ZONE = -6;
+	static final int ERROR_UPDATE_TOO_SOON = -7;
 	
 	private final Logger log = Logger.getLogger("Minecraft");
 
 	private HashMap<String, Integer> itemDb = new HashMap<String, Integer>();
+	private HashMap<Integer, Long> signUpdateTime = new HashMap<Integer, Long>();
 	private KtTools ktTools;
-
+	
 	public KtChestCount(KtTools ktTools) {
 		this.ktTools = ktTools;
 		loadItemDb();
+		
+		FileConfiguration config = ktTools.getConfig();
+		config.options().copyDefaults(true);
+		ktTools.saveConfig();
 	}
 
 	//This is actually the wrapper
@@ -78,6 +86,8 @@ public class KtChestCount {
 			player.sendMessage(ChatColor.RED + "Unable to search for item " + args[0]);
 			return true;
 		}
+		
+		log.info("ChestCount command called by " + player.getName() + " for zone " + b.getName());
 		
 		//Count
 		int [] chestCount = countItemsInZone(searchBlock, b);
@@ -238,6 +248,14 @@ public class KtChestCount {
 
 	public int updateSign(Block b, Player player, String[] lines) {
 		//Only update a real sign
+		Long lastUpdateTime = signUpdateTime.get(b.hashCode());
+		Long currentTime = (new Date()).getTime();
+		int minSignUpdateInterval = ktTools.getConfig().getInt("chestCount.updateTimeout");
+		if (lastUpdateTime != null && lastUpdateTime + minSignUpdateInterval > currentTime) {
+			return ERROR_UPDATE_TOO_SOON;
+		}
+		signUpdateTime.put(b.hashCode(), currentTime);
+		
 		if (b.getTypeId() != 63 && b.getTypeId() != 68) return NO_SIGN;
 		
 		CraftSign sign = (CraftSign) b.getState();

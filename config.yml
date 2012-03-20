@@ -1,0 +1,4 @@
+# Config solemnly for chestcount timeout
+
+chestCount:
+    updateTimeout: 1000

@@ -1,6 +1,6 @@
 name: KtTools
 main: com.ktipr.kttools.KtTools
-version: 0.4
+version: 0.5
 author: Coen van Leeuwen
 softdepend: [ 'EasyBind', 'Zones' ]
 commands:

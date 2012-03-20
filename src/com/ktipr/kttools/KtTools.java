@@ -62,6 +62,8 @@ public class KtTools extends JavaPlugin implements Listener, CommandExecutor {
         if(event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
         
         if(event.getName().equals("blockrotate")) {
+        	event.setCancelled(true);
+        	
         	Player player = event.getPlayer();
             if(!canUse(event.getPlayer(), "blockrotate")) {
             	player.sendMessage(ChatColor.RED + "You do not have permissions to rotate blocks");
@@ -77,7 +79,6 @@ public class KtTools extends JavaPlugin implements Listener, CommandExecutor {
             if (target.getType() == Material.RAILS) {
                 byte data = target.getData();
                 target.setData((byte) (data == 9 ? 0 : data + 1));
-                event.setCancelled(true);
                 return;
             }
             
@@ -87,7 +88,6 @@ public class KtTools extends JavaPlugin implements Listener, CommandExecutor {
                 byte flag = (byte) (0x8 & data);
                 byte rest = (byte) (0x7 & data);
                 target.setData((byte) ((byte) (rest == 5 ? 0 : rest + 1) | flag));
-                event.setCancelled(true);
                 return;
             }
             
@@ -98,7 +98,6 @@ public class KtTools extends JavaPlugin implements Listener, CommandExecutor {
                     target.getType() == Material.NETHER_BRICK_STAIRS) {
                 byte data = target.getData();
                 target.setData((byte) (data == 7 ? 0 : data + 1));
-                event.setCancelled(true);
                 return;
             }
 
@@ -107,7 +106,6 @@ public class KtTools extends JavaPlugin implements Listener, CommandExecutor {
                 int val = target.getType().getId();
                 data = (byte) (data > 7 ? data - 8 : data + 8);
                 target.setTypeIdAndData(val, data, true);
-                event.setCancelled(true);
                 return;
             }
         }
@@ -153,13 +151,14 @@ public class KtTools extends JavaPlugin implements Listener, CommandExecutor {
     }
 	
 	@EventHandler
-	public void onSignChangeEvent(SignChangeEvent event) {	
+	public void onSignChangeEvent(SignChangeEvent event) {			
 		int result = chestCounter.updateSign(event.getBlock(), event.getPlayer(), event.getLines());
 		if (result > 0) {
+			log.info("ChestCount sign created by " + event.getPlayer().getName() + " @ " + event.getBlock().getLocation());
 			event.getPlayer().sendMessage(ChatColor.GREEN + "You created a chest count sign!");
 			event.setLine(3, "" + result);
 		} else if (result < KtChestCount.NO_CHESTCOUNT_SIGN ) {
-			sendChestCountErrorMessage(result, event.getPlayer());
+			sendChestCountResultMessage(result, event.getPlayer());
 			event.setCancelled(true);
 			event.getBlock().breakNaturally();
 		}
@@ -168,9 +167,12 @@ public class KtTools extends JavaPlugin implements Listener, CommandExecutor {
 	@EventHandler
 	public void onBlockRedstoneChange(BlockRedstoneEvent event) {
 		Block b = event.getBlock();
-		if (event.getNewCurrent() == 0)	return;
+		if (event.getNewCurrent() == 0) return;
 		
-		chestCounter.updateSign(b, null, null);
+		int result = chestCounter.updateSign(b, null, null);
+		
+		if (result > 0)
+			log.info("ChestCount sign update issued by redstone trigger @ " + b.getLocation());
 	}
 	
 	@EventHandler
@@ -180,13 +182,15 @@ public class KtTools extends JavaPlugin implements Listener, CommandExecutor {
 		Block b = event.getClickedBlock();
 		if (b.getTypeId() != 63 && b.getTypeId() != 68) return;
 		event.setCancelled(true);
-		
+
 		int result = chestCounter.updateSign(b, event.getPlayer(), null);
+		if (result > 0)
+			log.info("ChestCount sign update issued by " + event.getPlayer().getName() + " @ " + b.getLocation());
 		
-		if (result < 0) sendChestCountErrorMessage(result, event.getPlayer());
+		sendChestCountResultMessage(result, event.getPlayer());
 	}
 	
-	private void sendChestCountErrorMessage(int result, Player player) {
+	private void sendChestCountResultMessage(int result, Player player) {
 		String msg = ChatColor.RED + "Error updating chest count sign: ";
 		switch (result) {
 			case KtChestCount.NO_SIGN:
@@ -204,6 +208,11 @@ public class KtTools extends JavaPlugin implements Listener, CommandExecutor {
 			case KtChestCount.ERROR_NO_RIGHTS_IN_ZONE:
 				msg += "You do not have access to chests in this zone";
 				break;
+			case KtChestCount.ERROR_UPDATE_TOO_SOON:
+				msg += "You cannot update so often!";
+				break;
+			default:
+				msg = ChatColor.GREEN + "Succesfully updated chestcount sign";
 		}
 		player.sendMessage(msg);
 	}
@@ -233,7 +242,7 @@ public class KtTools extends JavaPlugin implements Listener, CommandExecutor {
         } else {
             KtNote note = new KtNote(pitch);
             setNote(player, note);
-            player.sendMessage("Tunefork set at " + note);
+            player.sendMessage(ChatColor.GREEN + "Tunefork set at " + note);
         }
         return true;
 	}
