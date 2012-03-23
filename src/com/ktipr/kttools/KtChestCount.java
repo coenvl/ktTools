@@ -247,15 +247,7 @@ public class KtChestCount {
 	}
 
 	public int updateSign(Block b, Player player, String[] lines) {
-		//Only update a real sign
-		Long lastUpdateTime = signUpdateTime.get(b.hashCode());
-		Long currentTime = (new Date()).getTime();
-		int minSignUpdateInterval = ktTools.getConfig().getInt("chestCount.updateTimeout");
-		if (lastUpdateTime != null && lastUpdateTime + minSignUpdateInterval > currentTime) {
-			return ERROR_UPDATE_TOO_SOON;
-		}
-		signUpdateTime.put(b.hashCode(), currentTime);
-		
+		//Only update a real sign	
 		if (b.getTypeId() != 63 && b.getTypeId() != 68) return NO_SIGN;
 		
 		CraftSign sign = (CraftSign) b.getState();
@@ -265,6 +257,14 @@ public class KtChestCount {
 		
 		//Only check chestcount signs
 		if (lines[0] == null || !lines[0].equalsIgnoreCase("[chestcount]")) return NO_CHESTCOUNT_SIGN;
+		
+		Long lastUpdateTime = signUpdateTime.get(b.hashCode());
+		Long currentTime = (new Date()).getTime();
+		int minSignUpdateInterval = ktTools.getConfig().getInt("chestCount.updateTimeout");
+		if (lastUpdateTime != null && lastUpdateTime + minSignUpdateInterval > currentTime) {
+			return ERROR_UPDATE_TOO_SOON;
+		}
+		signUpdateTime.put(b.hashCode(), currentTime);
 		
 		//Check if search block is valid
 		ItemStack searchBlock = getBlockType(lines[1]);
