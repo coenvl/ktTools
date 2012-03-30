@@ -3,6 +3,7 @@ package com.ktipr.kttools;
 import java.util.HashMap;
 import java.util.logging.Logger;
 
+import org.bukkit.Art;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
@@ -10,12 +11,14 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.craftbukkit.block.CraftNoteBlock;
+import org.bukkit.craftbukkit.entity.CraftPainting;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockRedstoneEvent;
 import org.bukkit.event.block.SignChangeEvent;
+import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.PluginManager;
@@ -70,7 +73,8 @@ public class KtTools extends JavaPlugin implements Listener, CommandExecutor {
             	return;
             }
             
-            Block target = event.getTriggerEvent().getClickedBlock();            
+            Block target = event.getTriggerEvent().getClickedBlock();
+            //Joseph kijkt hier naar:
             if (zones != null && !zones.getUtils().canBuild(player, target)) {
             	player.sendMessage(ChatColor.RED + "You do not have permissions to rotate this block");
             	return;
@@ -151,7 +155,7 @@ public class KtTools extends JavaPlugin implements Listener, CommandExecutor {
     }
 	
 	@EventHandler
-	public void onSignChangeEvent(SignChangeEvent event) {			
+	public void onSignChangeEvent(SignChangeEvent event) {	
 		int result = chestCounter.updateSign(event.getBlock(), event.getPlayer(), event.getLines());
 		if (result > 0) {
 			log.info("ChestCount sign created by " + event.getPlayer().getName() + " @ " + event.getBlock().getLocation());
@@ -176,12 +180,26 @@ public class KtTools extends JavaPlugin implements Listener, CommandExecutor {
 	}
 	
 	@EventHandler
+	public void onPlayerInteractEntityEvent(PlayerInteractEntityEvent event) {
+		if (event.getRightClicked() instanceof CraftPainting) 
+		{
+			CraftPainting pt = (CraftPainting) event.getRightClicked();
+			int t = pt.getArt().getId();
+			t = (t+1)%25;
+			while(!pt.setArt(Art.getById(t)))
+				t = (t+1)%25;
+			
+			event.getPlayer().sendMessage(ChatColor.GREEN + "Changed painting to \"" + pt.getArt().name().toLowerCase() + "\"");
+		}
+	}
+	
+	@EventHandler
 	public void onPlayerInteractEvent(PlayerInteractEvent event) {
 		if (event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
 		
 		Block b = event.getClickedBlock();
 		if (b.getTypeId() != 63 && b.getTypeId() != 68) return;
-		event.setCancelled(true);
+		//event.setCancelled(true);
 
 		int result = chestCounter.updateSign(b, event.getPlayer(), null);
 		if (result > 0)
