@@ -12,6 +12,7 @@
 		<fileset dir="libs">
 			<include name="craftbukkit.jar" />
 			<include name="EasyBind.jar" />
+			<include name="Zones.jar" />
 		</fileset>
 	</path>
 	

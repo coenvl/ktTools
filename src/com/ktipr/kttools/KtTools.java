@@ -20,6 +20,7 @@ import org.bukkit.event.block.BlockRedstoneEvent;
 import org.bukkit.event.block.SignChangeEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -181,9 +182,19 @@ public class KtTools extends JavaPlugin implements Listener, CommandExecutor {
 	
 	@EventHandler
 	public void onPlayerInteractEntityEvent(PlayerInteractEntityEvent event) {
-		if (event.getRightClicked() instanceof CraftPainting) 
-		{
-			CraftPainting pt = (CraftPainting) event.getRightClicked();
+	    if (event.getRightClicked() instanceof CraftPainting) {
+	        ItemStack item = event.getPlayer().getItemInHand();
+	        if(item == null || item.getTypeId() != Material.DIAMOND_PICKAXE.getId()) return;
+	        
+	        CraftPainting pt = (CraftPainting) event.getRightClicked();
+	        if(getZonesPlugin() != null) {
+	            ZoneBase base = getZonesPlugin().getWorldManager(pt.getWorld()).getActiveZone(pt.getLocation());
+	            if(base != null && !base.getAccess(event.getPlayer()).canModify()) {
+                    event.getPlayer().sendMessage(ChatColor.RED + "You cannot do this here!");
+	                return;
+	            }
+	        }
+		    
 			int t = pt.getArt().getId();
 			t = (t+1)%25;
 			while(!pt.setArt(Art.getById(t)))
@@ -229,6 +240,9 @@ public class KtTools extends JavaPlugin implements Listener, CommandExecutor {
 			case KtChestCount.ERROR_UPDATE_TOO_SOON:
 				msg += "You cannot update so often!";
 				break;
+			case KtChestCount.ERROR_ZONE_SIZE:
+			    msg += "Zone to big.";
+			    break;
 			default:
 				msg = ChatColor.GREEN + "Succesfully updated chestcount sign";
 		}
