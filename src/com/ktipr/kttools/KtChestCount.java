@@ -108,9 +108,9 @@ public class KtChestCount {
 		int chestCount = 0;
 		boolean chestContainsItem;
 		
-		for (int x = f.getLowX(); x < f.getHighX(); x++) {
-			for (int y = f.getLowY(); y < f.getHighY(); y++) {
-				for (int z = f.getLowZ(); z < f.getHighZ(); z++) {
+		for (int x = f.getLowX(); x <= f.getHighX(); x++) {
+			for (int y = f.getLowY(); y <= f.getHighY(); y++) {
+				for (int z = f.getLowZ(); z <= f.getHighZ(); z++) {
 					
 					//If the block is a chest in the zone, check it's content
 					if (b.isInsideZone(x, y, z) && b.getWorld().getBlockTypeIdAt(x, z, y) == 54) {
