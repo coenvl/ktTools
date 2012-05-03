@@ -14,7 +14,6 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.craftbukkit.block.CraftSign;
 import org.bukkit.entity.Player;
-import org.bukkit.inventory.DoubleChestInventory;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 
@@ -32,6 +31,7 @@ public class KtChestCount {
 	static final int ERROR_NO_ZONE = -5;
 	static final int ERROR_NO_RIGHTS_IN_ZONE = -6;
 	static final int ERROR_UPDATE_TOO_SOON = -7;
+	static final int ERROR_ZONE_SIZE = -8;
 	
 	private final Logger log = Logger.getLogger("Minecraft");
 
@@ -73,13 +73,16 @@ public class KtChestCount {
 		//Get the selected zone, if necessary select one now
 		ZoneBase b = ktTools.getZoneBaseByPlayer(player);
 		if (b == null) {
-			GeneralCommands zonecommands = new GeneralCommands(ktTools.getZonesPlugin());
-			zonecommands.select(player, new String[0]);
-			b = ktTools.getZoneBaseByPlayer(player);
-			if (b == null)
-				return true; //Error message is already shown by zones
+		    b = ktTools.getZonesPlugin().getWorldManager(player.getWorld()).getActiveZone(player);
+		    if(b == null) return true;
+		    ktTools.getZonesPlugin().getZoneManager().setSelected(player.getEntityId(), b.getId());
 		}
 
+		if(b.getForm().getSize() >= 50000) {
+		    player.sendMessage(ChatColor.RED + "Zone too big.");
+		    return true;
+		}
+		
 		//Get requested block type
 		ItemStack searchBlock = getBlockType(args[0]);
 		if (searchBlock == null) {
@@ -142,16 +145,7 @@ public class KtChestCount {
 			return null;
 
 		Chest chest = (Chest)block.getState();
-		Inventory inventory = chest.getInventory();
-		if(inventory instanceof DoubleChestInventory) { 
-			DoubleChestInventory dinv = ((DoubleChestInventory)inventory);
-			if(dinv.getLeftSide().getHolder().equals(chest)) {
-				return dinv.getLeftSide();
-			} else {
-				return dinv.getRightSide();
-			}
-		}
-		return inventory;
+		return chest.getBlockInventory();
 	}
 
 	//Get the block type of a search string (function from Meaglin's CraftTrade)
@@ -270,6 +264,7 @@ public class KtChestCount {
 		ItemStack searchBlock = getBlockType(lines[1]);
 		if (searchBlock == null) {
 			sign.setLine(3, ChatColor.DARK_RED + "UNKNOWN ITEM!");
+			sign.update();
 			return ERROR_INVALID_SEARCH_ITEM;
 		}
 		
@@ -278,6 +273,7 @@ public class KtChestCount {
 		if (zoneplugin == null)
 		{
 			sign.setLine(3, ChatColor.DARK_RED + "NO ZONE PLUGIN!");
+			sign.update();
 			return ERROR_NO_ZONES_PLUGIN;
 		}
 		
@@ -285,7 +281,14 @@ public class KtChestCount {
 		ZoneBase zone = zoneplugin.getUtils().getActiveZone(b.getLocation());
 		if (zone == null) {
 			sign.setLine(3, ChatColor.DARK_RED + "NO ZONE FOUND!");
+			sign.update();
 			return ERROR_NO_ZONE;
+		}
+		
+		if (zone.getForm().getSize() >= 50000) {
+		    sign.setLine(3, ChatColor.DARK_RED + "TOO BIG ZONE!");
+		    sign.update();
+		    return ERROR_ZONE_SIZE;
 		}
 		
 		if (player != null && !zone.getAccess(player).canModify())
