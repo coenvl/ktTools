@@ -3,6 +3,7 @@ package com.ktipr.kttools;
 import java.io.File;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map.Entry;
 import java.util.logging.Logger;
 
@@ -18,7 +19,6 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 
 import com.zones.Zones;
-import com.zones.command.GeneralCommands;
 import com.zones.model.ZoneBase;
 import com.zones.model.ZoneForm;
 import com.zones.util.FileUtil;
@@ -32,6 +32,9 @@ public class KtChestCount {
 	static final int ERROR_NO_RIGHTS_IN_ZONE = -6;
 	static final int ERROR_UPDATE_TOO_SOON = -7;
 	static final int ERROR_ZONE_SIZE = -8;
+	static final int ERROR_AMBIGUOUS_ZONE = -9;
+	
+	static final int MAX_ZONE_SIZE = 50000;
 	
 	private final Logger log = Logger.getLogger("Minecraft");
 
@@ -65,21 +68,48 @@ public class KtChestCount {
 			return true;
 		}
 
-		if (args.length != 1) {
-			player.sendMessage(ChatColor.RED + "Usage: /chestcount blockid");
+		if (args.length < 1 || args.length > 2) {
+			player.sendMessage(ChatColor.RED + "Usage: /chestcount blockid [zone]");
 			return true;
 		}
 
+		//Get zone
+		ZoneBase b = null;
+		if (args.length == 2)
+		{
+			List<ZoneBase> zonelist = ktTools.getZonesPlugin().getZoneManager().matchZone(player, args[1]);
+					
+			if (zonelist.isEmpty())
+			{
+				player.sendMessage(ChatColor.RED + "No zone found matching description");
+				return true;			
+			}
+				
+			if (zonelist.size() == 1)
+				b = zonelist.get(0);
+			
+			if (zonelist.size() > 1)
+			{
+				player.sendMessage(ChatColor.RED + "Too many zones found matching description");
+				return true;			
+			}
+		}
+		else //If not successful use old style
+			b = ktTools.getZoneBaseByPlayer(player);
+		
 		//Get the selected zone, if necessary select one now
-		ZoneBase b = ktTools.getZoneBaseByPlayer(player);
 		if (b == null) {
 		    b = ktTools.getZonesPlugin().getWorldManager(player.getWorld()).getActiveZone(player);
-		    if(b == null) return true;
+		    if (b == null)
+		    {
+		    	player.sendMessage(ChatColor.RED + "No zones found for chestcount");
+		    	return true;
+		    }
 		    ktTools.getZonesPlugin().getZoneManager().setSelected(player.getEntityId(), b.getId());
 		}
 
-		if(b.getForm().getSize() >= 50000) {
-		    player.sendMessage(ChatColor.RED + "Zone too big.");
+		if(b.getForm().getSize() >= MAX_ZONE_SIZE) {
+		    player.sendMessage(ChatColor.RED + "Zone too big");
 		    return true;
 		}
 		
@@ -236,8 +266,11 @@ public class KtChestCount {
 	private boolean isEqualItem(ItemStack item1, ItemStack item2) {
 		if (item1 == null || item2 == null)
 			return false;
-
-		return item1.getTypeId() == item2.getTypeId() && item1.getDurability() == item2.getDurability();
+		
+		if (item1.getDurability() == -1 || item2.getDurability() == -1)
+			return item1.getTypeId() == item2.getTypeId();
+		else
+			return item1.getTypeId() == item2.getTypeId() && item1.getDurability() == item2.getDurability();
 	}
 
 	public int updateSign(Block b, Player player, String[] lines) {
@@ -276,27 +309,52 @@ public class KtChestCount {
 			sign.update();
 			return ERROR_NO_ZONES_PLUGIN;
 		}
+				
+		//Get zone
+		ZoneBase zone = null;
+		if (lines[2] != null && !lines[2].equals(""))
+		{
+			List<ZoneBase> zonelist;
+			
+			if (player != null)
+				zonelist = zoneplugin.getZoneManager().matchZone(player, lines[2]);
+			else
+				zonelist = zoneplugin.getZoneManager().matchZone(lines[2]);
+					
+			if (zonelist.isEmpty())
+				return ERROR_NO_ZONE;
+			
+			if (zonelist.size() == 1)
+				zone = zonelist.get(0);
+			
+			if (zonelist.size() > 1)
+				return ERROR_AMBIGUOUS_ZONE;
+		}
 		
-		//Check if valid zone
-		ZoneBase zone = zoneplugin.getUtils().getActiveZone(b.getLocation());
+		//If not successful use old style
+		if (zone == null)
+			zone = zoneplugin.getUtils().getActiveZone(b.getLocation());
+			
 		if (zone == null) {
 			sign.setLine(3, ChatColor.DARK_RED + "NO ZONE FOUND!");
 			sign.update();
 			return ERROR_NO_ZONE;
 		}
 		
-		if (zone.getForm().getSize() >= 50000) {
+		//sign.setLine(2, zone.getName());
+		//sign.update();
+		
+		if (zone.getForm().getSize() >= MAX_ZONE_SIZE) {
 		    sign.setLine(3, ChatColor.DARK_RED + "TOO BIG ZONE!");
 		    sign.update();
 		    return ERROR_ZONE_SIZE;
 		}
 		
 		if (player != null && !zone.getAccess(player).canModify())
-		{
 			return ERROR_NO_RIGHTS_IN_ZONE;
-		}
 		
 		//And finally do the real thing
+		
 		int [] results = countItemsInZone(searchBlock, zone);
 		sign.setLine(3, "" + results[0]);		
 		sign.update();

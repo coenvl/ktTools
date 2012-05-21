@@ -35,6 +35,7 @@ public class KtTools extends JavaPlugin implements Listener, CommandExecutor {
 
 	private final Logger log = Logger.getLogger("Minecraft");
 	private static final String prefix = "kttools.";
+	private static final int numPaintings = 25;
     
     private KtChestCount chestCounter;
     
@@ -156,14 +157,17 @@ public class KtTools extends JavaPlugin implements Listener, CommandExecutor {
     }
 	
 	@EventHandler
-	public void onSignChangeEvent(SignChangeEvent event) {	
-		int result = chestCounter.updateSign(event.getBlock(), event.getPlayer(), event.getLines());
+	public void onSignChangeEvent(SignChangeEvent event) {
+		Player player = event.getPlayer();
+		String [] lines = event.getLines();
+		
+		int result = chestCounter.updateSign(event.getBlock(), player, lines);
 		if (result > 0) {
-			log.info("ChestCount sign created by " + event.getPlayer().getName() + " @ " + event.getBlock().getLocation());
-			event.getPlayer().sendMessage(ChatColor.GREEN + "You created a chest count sign!");
-			event.setLine(3, "" + result);
+			log.info("ChestCount sign created by " + player.getName() + " @ " + event.getBlock().getLocation());
+			player.sendMessage(ChatColor.GREEN + "You created a chest count sign!");
+			lines[3] = "" + result;
 		} else if (result < KtChestCount.NO_CHESTCOUNT_SIGN ) {
-			sendChestCountResultMessage(result, event.getPlayer());
+			sendChestCountResultMessage(result, player);
 			event.setCancelled(true);
 			event.getBlock().breakNaturally();
 		}
@@ -196,11 +200,19 @@ public class KtTools extends JavaPlugin implements Listener, CommandExecutor {
 	        }
 		    
 			int t = pt.getArt().getId();
-			t = (t+1)%25;
-			while(!pt.setArt(Art.getById(t)))
-				t = (t+1)%25;
+			boolean changed = false;
 			
-			event.getPlayer().sendMessage(ChatColor.GREEN + "Changed painting to \"" + pt.getArt().name().toLowerCase() + "\"");
+			for (int i = 1; i < numPaintings; ++i)
+				if (pt.setArt(Art.getById((t + i) % numPaintings)))
+				{
+					changed = true;
+					break;
+				}
+				
+			if (!changed)
+				event.getPlayer().sendMessage(ChatColor.RED + "Unable to change painting");
+			else
+				event.getPlayer().sendMessage(ChatColor.GREEN + "Changed painting to \"" + pt.getArt().name().toLowerCase() + "\"");
 		}
 	}
 	
@@ -241,10 +253,16 @@ public class KtTools extends JavaPlugin implements Listener, CommandExecutor {
 				msg += "You cannot update so often!";
 				break;
 			case KtChestCount.ERROR_ZONE_SIZE:
-			    msg += "Zone to big.";
+			    msg += "Zone too big";
+			    break;
+			case KtChestCount.ERROR_AMBIGUOUS_ZONE:
+			    msg += "Too many zones matching description";
 			    break;
 			default:
-				msg = ChatColor.GREEN + "Succesfully updated chestcount sign";
+				if (result >= 0)
+					msg = ChatColor.GREEN + "Succesfully updated chestcount sign";
+				else
+					msg += "Unknown error";
 		}
 		player.sendMessage(msg);
 	}
