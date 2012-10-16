@@ -43,9 +43,7 @@ public class KtTools extends JavaPlugin implements Listener, CommandExecutor {
 	private Permissions permissions;
 	private Zones zones;
 	
-	public void onEnable() { 
-		chestCounter = new KtChestCount(this);
-		
+	public void onEnable() { 		
 		permissions = PermissionsResolver.resolve(this);
 	    	    
 	    PluginManager pm = getServer().getPluginManager();
@@ -54,6 +52,11 @@ public class KtTools extends JavaPlugin implements Listener, CommandExecutor {
 	    
 		Plugin plugin = pm.getPlugin("Zones");
 		zones = (Zones) plugin;
+		
+		if (zones != null)
+			chestCounter = new KtChestCount(this);
+		else
+			log.severe("No zones plugin means no ktChestCount!");
 		
 		log.info("Ktipr's tools have been enabled! Rock on Mister!");
 	}
@@ -114,6 +117,12 @@ public class KtTools extends JavaPlugin implements Listener, CommandExecutor {
                 target.setTypeIdAndData(val, data, true);
                 return;
             }
+            
+            if (target.getType() == Material.LOG) {
+                byte data = target.getData();
+                target.setData((byte) (data == 15 ? 0 : data + 1));
+                return;
+            }
         }
     }
 	
@@ -150,7 +159,7 @@ public class KtTools extends JavaPlugin implements Listener, CommandExecutor {
         if(cmd.getName().equalsIgnoreCase("tune")) {
             return tuneCommand(sender, cmd, commandLabel, args);
         }
-        if(cmd.getName().equalsIgnoreCase("chestcount")) {
+        if(getZonesPlugin() != null && cmd.getName().equalsIgnoreCase("chestcount")) {
             return chestCounter.chestcountCommand(sender, args);
         }
         return true;
@@ -158,6 +167,8 @@ public class KtTools extends JavaPlugin implements Listener, CommandExecutor {
 	
 	@EventHandler
 	public void onSignChangeEvent(SignChangeEvent event) {
+		if (zones == null) return;
+		
 		Player player = event.getPlayer();
 		String [] lines = event.getLines();
 		
@@ -175,6 +186,8 @@ public class KtTools extends JavaPlugin implements Listener, CommandExecutor {
 	
 	@EventHandler
 	public void onBlockRedstoneChange(BlockRedstoneEvent event) {
+		if (zones == null) return;
+		
 		Block b = event.getBlock();
 		if (event.getNewCurrent() == 0) return;
 		
@@ -218,6 +231,8 @@ public class KtTools extends JavaPlugin implements Listener, CommandExecutor {
 	
 	@EventHandler
 	public void onPlayerInteractEvent(PlayerInteractEvent event) {
+		if (zones == null) return;
+		
 		if (event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
 		
 		Block b = event.getClickedBlock();
@@ -232,6 +247,8 @@ public class KtTools extends JavaPlugin implements Listener, CommandExecutor {
 	}
 	
 	private void sendChestCountResultMessage(int result, Player player) {
+		if (zones == null) return;
+		
 		String msg = ChatColor.RED + "Error updating chest count sign: ";
 		switch (result) {
 			case KtChestCount.NO_SIGN:
@@ -317,6 +334,8 @@ public class KtTools extends JavaPlugin implements Listener, CommandExecutor {
 	}
 	
 	public ZoneBase getZoneBaseByPlayer(Player player) {
+		if (zones == null) return null;
+
 		return zones.getZoneManager().getSelectedZone(player.getEntityId());
 	}
 	

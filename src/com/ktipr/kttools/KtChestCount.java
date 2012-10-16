@@ -44,6 +44,12 @@ public class KtChestCount {
 	
 	public KtChestCount(KtTools ktTools) {
 		this.ktTools = ktTools;
+		if (ktTools.getZonesPlugin() == null)
+		{
+			log.info("No zones plugin -> no ktChestcount");
+			return;
+		}
+		
 		loadItemDb();
 		
 		FileConfiguration config = ktTools.getConfig();
