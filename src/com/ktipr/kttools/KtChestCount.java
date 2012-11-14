@@ -34,7 +34,7 @@ public class KtChestCount {
 	static final int ERROR_ZONE_SIZE = -8;
 	static final int ERROR_AMBIGUOUS_ZONE = -9;
 	
-	static final int MAX_ZONE_SIZE = 50000;
+	static final int MAX_ZONE_SIZE = 50000 * 2;
 	
 	private final Logger log = Logger.getLogger("Minecraft");
 

@@ -79,49 +79,73 @@ public class KtTools extends JavaPlugin implements Listener, CommandExecutor {
             }
             
             Block target = event.getTriggerEvent().getClickedBlock();
-            //Joseph kijkt hier naar:
             if (zones != null && !zones.getUtils().canBuild(player, target)) {
             	player.sendMessage(ChatColor.RED + "You do not have permissions to rotate this block");
             	return;
             }
             
-            if (target.getType() == Material.RAILS) {
-                byte data = target.getData();
-                target.setData((byte) (data == 9 ? 0 : data + 1));
-                return;
-            }
-            
-            if (target.getType() == Material.POWERED_RAIL ||
-                target.getType() == Material.DETECTOR_RAIL) {
-                byte data = target.getData();
-                byte flag = (byte) (0x8 & data);
-                byte rest = (byte) (0x7 & data);
-                target.setData((byte) ((byte) (rest == 5 ? 0 : rest + 1) | flag));
-                return;
-            }
-            
-            if (target.getType() == Material.WOOD_STAIRS ||
-                    target.getType() == Material.SMOOTH_STAIRS ||
-                    target.getType() == Material.BRICK_STAIRS ||
-                    target.getType() == Material.COBBLESTONE_STAIRS ||
-                    target.getType() == Material.NETHER_BRICK_STAIRS) {
-                byte data = target.getData();
-                target.setData((byte) (data == 7 ? 0 : data + 1));
-                return;
-            }
-
-            if (target.getType() == Material.STEP) {
-                byte data = target.getData();
-                int val = target.getType().getId();
-                data = (byte) (data > 7 ? data - 8 : data + 8);
-                target.setTypeIdAndData(val, data, true);
-                return;
-            }
-            
-            if (target.getType() == Material.LOG) {
-                byte data = target.getData();
-                target.setData((byte) (data == 15 ? 0 : data + 1));
-                return;
+            byte data = target.getData();
+            switch (target.getType()) {
+            	case RAILS:
+                    target.setData((byte) (data == 9 ? 0 : data + 1));
+                    break;
+            	case POWERED_RAIL:
+            	case DETECTOR_RAIL:
+            		target.setData((byte) ((data & 0x7) == 5 ? data & 0x8 : data + 1));
+                    break;
+            	case WOOD_STAIRS:
+            	case SMOOTH_STAIRS:
+            	case BRICK_STAIRS:
+            	case COBBLESTONE_STAIRS:
+            	case NETHER_BRICK_STAIRS:
+            	case SPRUCE_WOOD_STAIRS:
+            	case BIRCH_WOOD_STAIRS:
+            	case JUNGLE_WOOD_STAIRS:
+            	case SANDSTONE_STAIRS:
+            		target.setData((byte) (data == 7 ? 0 : data + 1));
+            		break;
+            	case STEP:
+            	case WOOD_STEP:
+                    int val = target.getType().getId();
+                    target.setTypeIdAndData(val, (byte) (data ^ 0x8), true);
+                    break;
+            	case LOG:
+            		target.setData((byte) (data >= 12 ? data - 12 : data + 4));
+            		break;
+            	case LEVER:
+            		byte switched = (byte) (data & 0x8);
+            		switch (data & 0x7) {
+	            		case 0x5:
+	            			target.setData((byte) (0x6 | switched));
+	            			break;
+	            		case 0x6:
+	            			target.setData((byte) (0x5 | switched));
+	            			break;
+	            		case 0x7:
+	            			target.setData((byte) (0x0 | switched));
+	            			break;
+	            		case 0x0:
+	            			target.setData((byte) (0x7 | switched));
+	            			break;
+            		}
+            		break;
+            	case PUMPKIN:
+            	case JACK_O_LANTERN:
+                    target.setData((byte) (data == 4 ? 0 : data + 1));
+                    break;
+            	case FURNACE:
+            	case DISPENSER:
+                    target.setData((byte) (data == 5 ? 2 : data + 1));
+                    break;
+            	case ANVIL:
+            		target.setData((byte) (data ^ 0x1));
+                    break;
+            	case PISTON_BASE:
+            	case PISTON_STICKY_BASE:
+                    target.setData((byte) (data == 5 ? 0 : data + 1));
+                    break;
+            	default:
+            		break;
             }
         }
     }
