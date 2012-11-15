@@ -34,7 +34,7 @@ public class KtChestCount {
 	static final int ERROR_ZONE_SIZE = -8;
 	static final int ERROR_AMBIGUOUS_ZONE = -9;
 	
-	static final int MAX_ZONE_SIZE = 50000 * 2;
+	static final int MAX_ZONE_SIZE = 50000;
 	
 	private final Logger log = Logger.getLogger("Minecraft");
 
@@ -114,7 +114,7 @@ public class KtChestCount {
 		    ktTools.getZonesPlugin().getZoneManager().setSelected(player.getEntityId(), b.getId());
 		}
 
-		if(b.getForm().getSize() >= MAX_ZONE_SIZE) {
+		if(b.getForm().getSize() >= (MAX_ZONE_SIZE * 2)) {
 		    player.sendMessage(ChatColor.RED + "Zone too big");
 		    return true;
 		}
@@ -350,7 +350,7 @@ public class KtChestCount {
 		//sign.setLine(2, zone.getName());
 		//sign.update();
 		
-		if (zone.getForm().getSize() >= MAX_ZONE_SIZE) {
+		if (zone.getForm().getSize() >= (player != null ? (MAX_ZONE_SIZE*2) : MAX_ZONE_SIZE )) {
 		    sign.setLine(3, ChatColor.DARK_RED + "TOO BIG ZONE!");
 		    sign.update();
 		    return ERROR_ZONE_SIZE;
