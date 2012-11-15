@@ -106,7 +106,7 @@ public class KtTools extends JavaPlugin implements Listener, CommandExecutor {
             		break;
             	case STEP:
             	case WOOD_STEP:
-                    int val = target.getType().getId();
+                    int val = target.getTypeId();
                     target.setTypeIdAndData(val, (byte) (data ^ 0x8), true);
                     break;
             	case LOG:
