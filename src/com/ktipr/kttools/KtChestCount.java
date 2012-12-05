@@ -67,7 +67,7 @@ public class KtChestCount {
 		
 		Player player = (Player) sender;
 		
-		//Can the player run the chestcount command
+		//Can the player run the chestcount command?
 		if (!ktTools.canUse(player, "chestcount"))
 		{
 			player.sendMessage(ChatColor.RED + "You do not have the permissions to use this command");
